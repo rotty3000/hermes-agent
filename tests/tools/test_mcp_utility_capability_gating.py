@@ -91,7 +91,7 @@ class TestCapabilityGatedRegistration:
             initialize_result=_make_init_result(resources=True, prompts=False)
         )
         selected = _select_utility_schemas("res-only", server, {})
-        assert _handler_keys(selected) == {"list_resources", "read_resource"}
+        assert _handler_keys(selected) == {"list_resources", "read_resource", "list_resource_templates"}
 
 
     def test_fully_capable_server_gets_all_four_stubs(self):
@@ -102,7 +102,7 @@ class TestCapabilityGatedRegistration:
         )
         selected = _select_utility_schemas("full", server, {})
         assert _handler_keys(selected) == {
-            "list_resources", "read_resource", "list_prompts", "get_prompt",
+            "list_resources", "read_resource", "list_resource_templates", "list_prompts", "get_prompt",
         }
 
 
@@ -134,7 +134,7 @@ class TestConfigFilterStillApplies:
             server,
             {"tools": {"prompts": False}},
         )
-        assert _handler_keys(selected) == {"list_resources", "read_resource"}
+        assert _handler_keys(selected) == {"list_resources", "read_resource", "list_resource_templates"}
 
 
 class TestLegacyFallback:
@@ -147,7 +147,8 @@ class TestLegacyFallback:
 
         server = _make_fake_server(initialize_result=None)
         # With the legacy fallback, session.spec includes all four methods,
-        # so all four stubs should register (old behavior).
+        # so all four stubs should register (old behavior). The spec predates
+        # list_resource_templates, so the fallback correctly skips that one.
         selected = _select_utility_schemas("legacy", server, {})
         assert _handler_keys(selected) == {
             "list_resources", "read_resource", "list_prompts", "get_prompt",

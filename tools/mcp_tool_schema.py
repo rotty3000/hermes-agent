@@ -235,7 +235,22 @@ _UTILITY_TOOL_SPECS = (
              "description": "The same arguments the subscription was made with",
              "properties": {},
              "additionalProperties": True},
-     }, ["name"]))
+     }, ["name"]),
+    ("list_resource_templates", "List the parameterized resource URI templates MCP server '{server}' offers",
+     {}, None),
+    ("subscribe_resource", "Subscribe to a resource on MCP server '{server}': each time it changes, a new "
+     "agent run starts with your instructions and the resource's new content, and its result goes to the "
+     "chosen target",
+     {
+         "uri": {"type": "string", "description": "Exact URI of the resource to watch"},
+         "instructions": {"type": "string",
+                          "description": "What to do each time the resource changes (up to 2000 characters)"},
+         "deliver": {"type": "string",
+                     "description": "Where each run's result goes: log, telegram, discord, slack, signal, ..."},
+         "deliver_chat_id": {"type": "string", "description": "Optional chat id on the deliver platform"},
+     }, ["uri"]),
+    ("unsubscribe_resource", "Cancel a subscription to a resource on MCP server '{server}'",
+     {"uri": {"type": "string", "description": "URI the subscription was made for"}}, ["uri"]))
 
 
 def _build_utility_schemas(server_name: str) -> list[dict]:
@@ -289,4 +304,7 @@ def matches_name_filter(tool_name: str, patterns: set[str]) -> bool:
 _UTILITY_CAPABILITY_ATTRS = {
     "list_resources": "resources", "read_resource": "resources",
     "list_prompts": "prompts", "get_prompt": "prompts",
-    "list_event_types": "events", "subscribe_event": "events", "unsubscribe_event": "events"}
+    "list_event_types": "events", "subscribe_event": "events", "unsubscribe_event": "events",
+    "list_resource_templates": "resources",
+    # Opt-in (``resource_subscriptions: true``) and gated on ``capabilities.resources.subscribe``.
+    "subscribe_resource": "resource_subscriptions", "unsubscribe_resource": "resource_subscriptions"}

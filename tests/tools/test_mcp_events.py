@@ -13,6 +13,7 @@ import pytest
 
 from mcp.shared.exceptions import MCPError
 from tools import mcp_tool_events as events
+from tools import mcp_tool_subscription_routes as subscription_routes
 from tools.mcp_tool_registration import _select_utility_schemas
 from tests.waiting import async_wait_until
 
@@ -176,9 +177,9 @@ class TestSubscribe:
         assert "Post a two-line summary." in text and "telegram" in text and "-100123" in text
 
     def test_overlong_instructions_are_refused_before_asking(self):
-        assert events._subscribe_args_error({"name": "x", "instructions": "a" * events._MAX_INSTRUCTIONS_CHARS}) is None
-        assert events._subscribe_args_error({"name": "x", "instructions": "a" * (events._MAX_INSTRUCTIONS_CHARS + 1)})
-        assert events._subscribe_args_error({"name": "x", "deliver_chat_id": 123})
+        assert subscription_routes.subscribe_args_error({"name": "x", "instructions": "a" * subscription_routes.MAX_INSTRUCTIONS_CHARS}) is None
+        assert subscription_routes.subscribe_args_error({"name": "x", "instructions": "a" * (subscription_routes.MAX_INSTRUCTIONS_CHARS + 1)})
+        assert subscription_routes.subscribe_args_error({"name": "x", "deliver_chat_id": 123})
 
     def test_a_disabled_subscription_is_not_turned_back_on(self, home):
         _subscribe(FakeSession(_grant()))

@@ -807,6 +807,20 @@ def _render_read_resource(result, server_name: str) -> dict:
     return {"result": "\n".join(parts)}
 
 
+def _render_resource_template_list(all_templates, server_name: str) -> dict:
+    templates = []
+    for t in all_templates:
+        entry = _pick(t, ("name", "name"), ("description", "description", True))
+        uri_template = mcp_field(t, "uri_template", "uriTemplate")
+        if uri_template:
+            entry = {"uriTemplate": str(uri_template), **entry}
+        mime = mcp_field(t, "mime_type", "mimeType")
+        if mime:
+            entry["mimeType"] = mime
+        templates.append(entry)
+    return {"resourceTemplates": templates}
+
+
 def _render_prompt_list(all_prompts, server_name: str) -> dict:
     prompts = []
     for p in all_prompts:
@@ -834,6 +848,10 @@ _make_list_resources_handler = _make_utility_handler(
 _make_read_resource_handler = _make_utility_handler(
     "resources/read", "read_resource",
     lambda session, args, sn: session.read_resource(args["uri"]), _render_read_resource, required="uri")
+_make_list_resource_templates_handler = _make_utility_handler(
+    "resources/templates/list", "list_resource_templates",
+    lambda session, args, sn: _core._paginate_full_list(session.list_resource_templates, "resource_templates", sn),
+    _render_resource_template_list)
 _make_list_prompts_handler = _make_utility_handler(
     "prompts/list", "list_prompts",
     lambda session, args, sn: _core._paginate_full_list(session.list_prompts, "prompts", sn), _render_prompt_list)

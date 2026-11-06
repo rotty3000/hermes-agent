@@ -1948,7 +1948,7 @@ class TestUtilityToolRegistration:
     """Verify utility tools are registered alongside regular MCP tools."""
 
     def test_utility_tools_registered(self):
-        """_discover_and_register_server registers all 4 utility tools."""
+        """_discover_and_register_server registers all 5 utility tools."""
         from tools.registry import ToolRegistry
         from tools.mcp_tool_discovery import _discover_and_register_server
         from tools.mcp_tool import _servers, MCPServerTask
@@ -1969,13 +1969,10 @@ class TestUtilityToolRegistration:
                 _discover_and_register_server("fs", {"command": "npx", "args": []})
             )
 
-        # Regular tool + 4 utility tools
-        assert "mcp__fs__read_file" in registered
-        assert "mcp__fs__list_resources" in registered
-        assert "mcp__fs__read_resource" in registered
-        assert "mcp__fs__list_prompts" in registered
-        assert "mcp__fs__get_prompt" in registered
-        assert len(registered) == 5
+        # Regular tool + 5 utility tools, and nothing else
+        assert sorted(registered) == sorted([
+            "mcp__fs__read_file", "mcp__fs__list_resources", "mcp__fs__read_resource",
+            "mcp__fs__list_resource_templates", "mcp__fs__list_prompts", "mcp__fs__get_prompt"])
 
         # All in the registry
         all_names = mock_registry.get_all_tool_names()

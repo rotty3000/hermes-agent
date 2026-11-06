@@ -601,8 +601,12 @@ When supported, Hermes also registers utility tools around MCP resources and pro
 
 - `list_resources`
 - `read_resource`
+- `list_resource_templates`
 - `list_prompts`
 - `get_prompt`
+
+With `resource_subscriptions: true`, servers that support it also get `subscribe_resource` and
+`unsubscribe_resource` (see [Resource subscriptions](#resource-subscriptions)).
 
 These are registered per server with the same prefix pattern, for example:
 
@@ -773,7 +777,7 @@ MCP servers can notify Hermes when their available tools change at runtime by se
 
 This is useful for MCP servers whose capabilities change dynamically (e.g. a server that adds tools when a new database schema is loaded, or removes tools when a service goes offline).
 
-The refresh is lock-protected so rapid-fire notifications from the same server don't cause overlapping refreshes. Prompt and resource change notifications (`prompts/list_changed`, `resources/list_changed`) are received but not yet acted on.
+The refresh is lock-protected so rapid-fire notifications from the same server don't cause overlapping refreshes. Prompt and resource list changes (`prompts/list_changed`, `resources/list_changed`) are logged; the utility tools list prompts and resources live, so the next call already sees them. Updates to a subscribed resource (`notifications/resources/updated`) start a run; see [Resource subscriptions](#resource-subscriptions).
 
 ### Reloading
 
@@ -1087,6 +1091,64 @@ rejected delivery.
 
 Not supported yet: the `poll` and `push` delivery modes, and subscriptions made from a secondary
 profile under `gateway.multiplex_profiles`.
+
+## Resource subscriptions
+
+MCP servers can tell a client when a resource changes. Turn this on per server:
+
+```yaml
+mcp_servers:
+  knowledge:
+    url: https://example.com/mcp
+    resource_subscriptions: true
+    resource_debounce_seconds: 2   # optional; updates within this window start one run
+```
+
+Servers whose capabilities declare `resources.subscribe` then get two more utility tools:
+
+- `subscribe_resource`: watch one exact resource URI, with what to do when it changes
+  (`instructions`, up to 2000 characters) and where each run's result goes (`deliver`,
+  `deliver_chat_id`). You are asked to approve every subscription, since it starts unattended agent
+  runs; the approval shows the URI, the instructions, the destination, and what the run receives.
+- `unsubscribe_resource`: stop watching it
+
+Each update starts a run whose prompt carries the URI and the resource's new content, re-read right
+after the notification (up to 16,000 characters of text, with a note when cut; binary parts are left
+out). The content sits in a fenced block the content can't close, and is framed as external data.
+Runs use the webhook toolset (`web_search`, `web_extract`, `vision_analyze`, `clarify`), so they
+can't read the resource again or call the server's tools; what the prompt carries is all they see.
+
+Hermes speaks both protocol eras. On a 2025-era connection (the `initialize` handshake) it sends
+`resources/subscribe` for each URI and acts on `notifications/resources/updated` for that exact URI.
+The 2026-07-28 revision removed those methods; there Hermes opens one `subscriptions/listen` stream
+naming every URI, and re-opens it when the set changes or the stream drops. That revision lets a
+server report updates for sub-resources of a subscribed URI: they are delivered too, and updates
+that arrive together are combined into one run that lists the changed URIs. If the server refuses a
+URI, `subscribe_resource` reports it and removes the subscription.
+
+Unlike [MCP Events](#mcp-events-experimental), the server never calls Hermes back, so no public URL
+is needed. Updates arrive over the MCP connection, and Hermes forwards each one, signed with the
+subscription's own `whsec_` secret, to the gateway's webhook listener on this machine. So:
+
+- `platforms.webhook` must be enabled and the gateway must be running. Keep the listener on
+  loopback: the forward is plain HTTP.
+- Each subscription is stored as a dynamic webhook route (`hermes webhook list` shows it), which
+  also gives it the listener's dedupe, rate limit (30 a minute per route by default) and delivery.
+- Server-side subscriptions belong to one MCP connection, and every Hermes process (gateway, CLI,
+  TUI) opens its own. One process per server holds the subscriptions, chosen by a lock under
+  `$HERMES_HOME/runtime/mcp_resource_subscriptions/`, so an update starts one run. When it exits,
+  another process takes over within about 15 seconds and resubscribes; a subscription made in a
+  process that does not hold them is picked up within about 10 seconds.
+- Every new connection resubscribes all stored URIs. With `lazy: true` or `idle_timeout_seconds`,
+  updates are missed while the connection is down.
+- An update is dropped when the gateway's listener is not running (after a refused connection,
+  forwarding pauses for 30 seconds), when it stays unreachable after three tries, or when the MCP
+  connection ends while the update is still waiting out the debounce window.
+- Background requests to the server (subscribe, unsubscribe, the re-read) time out after 30 seconds,
+  so a hung server can't hold up the server's other tool calls.
+
+Not supported: subscriptions made from a secondary profile under `gateway.multiplex_profiles`
+(`subscribe_resource` refuses them).
 
 ## Running Hermes as an MCP server
 

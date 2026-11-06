@@ -11,6 +11,7 @@ from tools.mcp_tool_errors import _is_method_not_found_error, _unwrap_exception_
 from tools.mcp_tool_schema import mcp_prefixed_tool_name
 from tools.mcp_tool_common import _core
 from tools import mcp_tool_registration as _registration
+from tools import mcp_tool_resource_subscriptions as _resource_subs
 
 logger = logging.getLogger("tools.mcp_tool")
 
@@ -97,7 +98,8 @@ class MCPServerHealthMixin:
         return _on_log
 
     def _make_message_handler(self):
-        """``message_handler``: only ``ToolListChangedNotification`` triggers a refresh; prompt/resource changes log."""
+        """``message_handler``: ``tools/list_changed`` refreshes tools, ``resources/updated`` forwards a
+        subscribed resource's update; prompt/resource ``list_changed`` log (listings are never cached)."""
         async def _handler(message):
             try:
                 if isinstance(message, Exception):
@@ -114,10 +116,17 @@ class MCPServerHealthMixin:
                     # JSON-RPC stream when list_changed arrives while another request is in flight.
                     self._schedule_tools_refresh()
                     await asyncio.sleep(0)  # one tick so short-lived contexts (and tests) observe it
+                elif isinstance(payload, _core.ResourceUpdatedNotification):
+                    uri = str(getattr(getattr(payload, "params", None), "uri", "") or "")
+                    # 2026-07-28 sessions get the same update from their listen stream (_listen).
+                    if uri and not _resource_subs.is_modern_session(self.session):
+                        _resource_subs.handle_resource_updated(self, uri)
                 elif isinstance(payload, _core.PromptListChangedNotification):
-                    logger.debug("MCP server '%s': prompts/list_changed (ignored)", self.name)
+                    # Prompts and resources are listed live by the utility tools (never cached), so
+                    # the next list call already sees the change.
+                    logger.debug("MCP server '%s': prompts/list_changed", self.name)
                 elif isinstance(payload, _core.ResourceListChangedNotification):
-                    logger.debug("MCP server '%s': resources/list_changed (ignored)", self.name)
+                    logger.debug("MCP server '%s': resources/list_changed", self.name)
             except Exception:
                 logger.exception("Error in MCP message handler for '%s'", self.name)
         return _handler

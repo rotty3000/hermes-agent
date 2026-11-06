@@ -106,8 +106,8 @@ _OPTIONAL_TYPE_FAMILIES = (
     ("mcp.types", ("ElicitRequestParams", "ElicitResult"),
      "MCP elicitation types not available -- elicitation disabled"),
     ("mcp.types", ("ServerNotification", "ToolListChangedNotification", "PromptListChangedNotification",
-                   "ResourceListChangedNotification"),
-     "MCP notification types not available -- dynamic tool discovery disabled"),
+                   "ResourceListChangedNotification", "ResourceUpdatedNotification"),
+     "MCP notification types not available -- dynamic tool discovery and resource updates disabled"),
 )
 # Bound by _ensure_mcp_sdk(); module __getattr__ (PEP 562) imports the SDK on first external
 # access so mock.patch("tools.mcp_tool.stdio_client") sees a real original, never clobbered.

@@ -14,10 +14,11 @@ from tools.mcp_tool_common import _parse_boolish, _core, _resolve_tool_timeout, 
 from tools import mcp_tool_config as _config
 from tools import mcp_tool_events as _events
 from tools import mcp_tool_handlers as _handlers
+from tools import mcp_tool_resource_subscriptions as _resource_subs
 from tools import mcp_tool_schema as _schema
 from tools.mcp_tool_handlers import (
     _make_check_fn, _make_get_prompt_handler, _make_list_prompts_handler,
-    _make_list_resources_handler, _make_read_resource_handler)
+    _make_list_resource_templates_handler, _make_list_resources_handler, _make_read_resource_handler)
 from tools.mcp_tool_schema import (
     _UTILITY_CAPABILITY_ATTRS, _build_utility_schemas, _normalize_name_filter, matches_name_filter)
 from tools.mcp_tool_scope import _key_name, _key_scope, _resolve_server_key, _server_key
@@ -34,7 +35,10 @@ _UTILITY_HANDLER_FACTORIES = {
     "list_resources": _make_list_resources_handler, "read_resource": _make_read_resource_handler,
     "list_prompts": _make_list_prompts_handler, "get_prompt": _make_get_prompt_handler,
     "list_event_types": _events._make_list_event_types_handler, "subscribe_event": _events._make_subscribe_event_handler,
-    "unsubscribe_event": _events._make_unsubscribe_event_handler}
+    "unsubscribe_event": _events._make_unsubscribe_event_handler,
+    "list_resource_templates": _make_list_resource_templates_handler,
+    "subscribe_resource": _resource_subs._make_subscribe_resource_handler,
+    "unsubscribe_resource": _resource_subs._make_unsubscribe_resource_handler}
 
 
 def _normalize_server_trust(value: Any) -> str:
@@ -195,6 +199,13 @@ def _select_utility_schemas(server_name: str, server: "MCPServerTask", config: d
         family = _UTILITY_CAPABILITY_ATTRS[handler_key]
         if family == "events":  # opt-in: the SDK drops the server's ``events`` capability
             return None if _events.events_enabled(config) else "events not enabled"
+        if family == "resource_subscriptions":
+            if not _resource_subs.resource_subscriptions_enabled(config):
+                return "resource_subscriptions not enabled"
+            if not enabled["resources"]:
+                return "resources disabled"
+            return None if _resource_subs.server_supports_subscribe(server) else \
+                "server does not advertise 'resources.subscribe'"
         if not enabled[family]:
             return f"{family} disabled"
         if advertised is not None:

@@ -534,3 +534,11 @@ def _is_session_expired_error(exc: BaseException) -> bool:
         msg = str(current).lower()
         found = found or isinstance(current, transport_error_types) or any(m in msg for m in _SESSION_EXPIRED_MARKERS)
     return found
+
+
+def mcp_error_dict(exc: BaseException) -> Optional[dict]:
+    """A JSON-RPC error raised by the SDK as ``{code, message[, data]}``; None for any other exception."""
+    from mcp.shared.exceptions import MCPError
+    if not isinstance(exc, MCPError):
+        return None
+    return {"code": exc.code, "message": exc.message, **({"data": exc.data} if exc.data is not None else {})}
